@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useCallback, JSX } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -38,14 +38,11 @@ interface ShapeComponentProps {
 interface FrequencyMap {
   [key: string]: number;
 }
-interface WebKitWindow extends Window {
-  webkitAudioContext: typeof AudioContext;
-}
-
 
 const QuadNBackGame: React.FC = () => {
   const [nBack, setNBack] = useState<number>(2);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
   const [sequence, setSequence] = useState<SequenceItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [score, setScore] = useState<GameScore>({
@@ -88,6 +85,7 @@ const QuadNBackGame: React.FC = () => {
 
   const startGame = (): void => {
     setGameStarted(true);
+    setIsPaused(false);
     setSequence(generateSequence());
     setCurrentIndex(0);
     setScore({
@@ -98,6 +96,8 @@ const QuadNBackGame: React.FC = () => {
     });
     setFeedback('');
   };
+
+  const [totalIncorrect, setTotalIncorrect] = useState<number>(0);
 
   const checkMatch = (type: StimulusType): void => {
     if (currentIndex < nBack) {
@@ -124,13 +124,25 @@ const QuadNBackGame: React.FC = () => {
         break;
     }
 
-    setScore(prev => ({
-      ...prev,
-      [type]: {
-        correct: prev[type].correct + (isMatch ? 1 : 0),
-        incorrect: prev[type].incorrect + (isMatch ? 0 : 1)
-      }
-    }));
+    setScore(prev => {
+      const newScore = {
+        ...prev,
+        [type]: {
+          correct: prev[type].correct + (isMatch ? 1 : 0),
+          incorrect: prev[type].incorrect + (isMatch ? 0 : 1)
+        }
+      };
+      
+      // Update total incorrect count
+      const newTotalIncorrect = 
+        newScore.position.incorrect + 
+        newScore.color.incorrect + 
+        newScore.audio.incorrect + 
+        newScore.shape.incorrect;
+      
+      setTotalIncorrect(newTotalIncorrect);
+      return newScore;
+    });
 
     setFeedback(isMatch ? 'Correct!' : 'Incorrect');
   };
@@ -165,12 +177,11 @@ const QuadNBackGame: React.FC = () => {
   }, [audioContext]);
 
   useEffect(() => {
-    const AudioContextConstructor = (window as unknown as WebKitWindow).webkitAudioContext || window.AudioContext;
-    setAudioContext(new AudioContextConstructor());
+    setAudioContext(new (window.AudioContext || window.webkitAudioContext)());
   }, []);
 
   useEffect(() => {
-    if (gameStarted && currentIndex < sequence.length) {
+    if (gameStarted && currentIndex < sequence.length && !isPaused) {
       playLetterSound(sequence[currentIndex].letter);
       
       const timer = setTimeout(() => {
@@ -179,7 +190,7 @@ const QuadNBackGame: React.FC = () => {
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [gameStarted, currentIndex, sequence.length, playLetterSound]);
+  }, [gameStarted, currentIndex, sequence.length, playLetterSound, isPaused]); 
 
   const renderGrid = (): JSX.Element[] => {
     const grid: JSX.Element[] = [];
@@ -190,9 +201,9 @@ const QuadNBackGame: React.FC = () => {
         <div
           key={i}
           className={`w-24 h-24 border border-gray-300 flex items-center justify-center
-            ${currentItem?.position === i ? 'bg-opacity-20' : 'bg-white'}`}
+            ${currentItem?.position === i ? 'bg-opacity-20' : ''}`}
           style={{
-            backgroundColor: currentItem?.position === i ? currentItem.color : 'white'
+            backgroundColor: currentItem?.position === i ? currentItem.color : 'white' as Color
           }}
         >
           {currentItem?.position === i && (
@@ -237,10 +248,20 @@ const QuadNBackGame: React.FC = () => {
           <Button 
             onClick={startGame}
             className="w-full"
-            disabled={gameStarted && currentIndex < sequence.length}
+            disabled={gameStarted && currentIndex < sequence.length && !isPaused}
           >
             {gameStarted ? 'Restart Game' : 'Start Game'}
           </Button>
+
+          {gameStarted && (
+            <Button 
+              onClick={() => setIsPaused(!isPaused)}
+              className="w-full"
+              variant={isPaused ? "destructive" : "secondary"}
+            >
+              {isPaused ? 'Resume Game' : 'Pause Game'}
+            </Button>
+          )}
 
           {gameStarted && (
             <>
@@ -256,7 +277,7 @@ const QuadNBackGame: React.FC = () => {
                   Color Match (C)
                 </Button>
                 <Button onClick={() => checkMatch('audio')}>
-                  Letter Match (L)
+                  Sound Match (L)
                 </Button>
                 <Button onClick={() => checkMatch('shape')}>
                   Shape Match (S)
@@ -281,7 +302,7 @@ const QuadNBackGame: React.FC = () => {
                   <p>Incorrect: {score.color.incorrect}</p>
                 </div>
                 <div>
-                  <h3 className="font-bold">Letter</h3>
+                  <h3 className="font-bold">Sound</h3>
                   <p>Correct: {score.audio.correct}</p>
                   <p>Incorrect: {score.audio.incorrect}</p>
                 </div>
@@ -292,8 +313,9 @@ const QuadNBackGame: React.FC = () => {
                 </div>
               </div>
 
-              <div className="text-center mt-4">
+              <div className="text-center mt-4 space-y-2">
                 <p>Trial: {currentIndex + 1} / {trials}</p>
+                <p className="font-bold">Total Incorrect: {totalIncorrect}</p>
               </div>
             </>
           )}
