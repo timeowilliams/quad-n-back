@@ -43,9 +43,6 @@ interface WebKitWindow extends Window {
   webkitAudioContext: typeof AudioContext;
 }
 
-// Type assertion for the window object
-const windowWithWebKit = window as unknown as WebKitWindow;
-
 const QuadNBackGame: React.FC = () => {
   const [nBack, setNBack] = useState<number>(2);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
@@ -184,8 +181,11 @@ const QuadNBackGame: React.FC = () => {
   }, [audioContext]);
 
   useEffect(() => {
-    const AudioContextConstructor = window.AudioContext || windowWithWebKit.webkitAudioContext;
-    setAudioContext(new AudioContextConstructor());
+    if (typeof window !== 'undefined') {  // Check if we're on the client side
+      const windowWithWebKit = window as unknown as WebKitWindow;
+      const AudioContextConstructor = window.AudioContext || windowWithWebKit.webkitAudioContext;
+      setAudioContext(new AudioContextConstructor());
+    }
   }, []);
 
   useEffect(() => {
