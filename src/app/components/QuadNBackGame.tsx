@@ -1,38 +1,69 @@
 'use client'
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, JSX } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Square, Circle, Triangle, Star } from 'lucide-react';
 
-const QuadNBackGame = () => {
-  const [nBack, setNBack] = useState(2);
-  const [gameStarted, setGameStarted] = useState(false);
-  const [sequence, setSequence] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [score, setScore] = useState({
+type StimulusType = 'position' | 'color' | 'audio' | 'shape';
+type Shape = 'square' | 'circle' | 'triangle' | 'star';
+type Letter = 'B' | 'K' | 'M' | 'P' | 'R' | 'S' | 'T' | 'L';
+type Color = 'red' | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'white';
+
+interface ScoreCategory {
+  correct: number;
+  incorrect: number;
+}
+
+interface GameScore {
+  position: ScoreCategory;
+  color: ScoreCategory;
+  audio: ScoreCategory;
+  shape: ScoreCategory;
+}
+
+interface SequenceItem {
+  position: number;
+  color: Color;
+  letter: Letter;
+  shape: Shape;
+}
+
+interface ShapeComponentProps {
+  shape: Shape;
+  size?: number;
+  color?: string;
+}
+
+interface FrequencyMap {
+  [key: string]: number;
+}
+interface WebKitWindow extends Window {
+  webkitAudioContext: typeof AudioContext;
+}
+
+
+const QuadNBackGame: React.FC = () => {
+  const [nBack, setNBack] = useState<number>(2);
+  const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [sequence, setSequence] = useState<SequenceItem[]>([]);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [score, setScore] = useState<GameScore>({
     position: { correct: 0, incorrect: 0 },
     color: { correct: 0, incorrect: 0 },
     audio: { correct: 0, incorrect: 0 },
     shape: { correct: 0, incorrect: 0 }
   });
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState<string>('');
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   
   const gridSize = 3;
-  const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink'];
-  // Using common consonants that are phonetically distinct
-  const letters = ['B', 'K', 'M', 'P', 'R', 'S', 'T', 'L'];
-  
-  // Create audio context for sounds
-  const [audioContext, setAudioContext] = useState(null);
-  
-  useEffect(() => {
-    setAudioContext(new (window.AudioContext || window.webkitAudioContext)());
-  }, []);
-  const shapes = ['square', 'circle', 'triangle', 'star'];
+  const colors: Color[] = ['red', 'blue', 'green', 'purple', 'orange', 'pink'];
+  const letters: Letter[] = ['B', 'K', 'M', 'P', 'R', 'S', 'T', 'L'];
+  const shapes: Shape[] = ['square', 'circle', 'triangle', 'star'];
   const trials = 25;
 
-  const ShapeComponent = ({ shape, ...props }) => {
+  const ShapeComponent: React.FC<ShapeComponentProps> = ({ shape, ...props }) => {
     switch (shape) {
       case 'square': return <Square {...props} />;
       case 'circle': return <Circle {...props} />;
@@ -42,8 +73,8 @@ const QuadNBackGame = () => {
     }
   };
   
-  const generateSequence = useCallback(() => {
-    const newSequence = [];
+  const generateSequence = useCallback((): SequenceItem[] => {
+    const newSequence: SequenceItem[] = [];
     for (let i = 0; i < trials; i++) {
       newSequence.push({
         position: Math.floor(Math.random() * (gridSize * gridSize)),
@@ -55,7 +86,7 @@ const QuadNBackGame = () => {
     return newSequence;
   }, []);
 
-  const startGame = () => {
+  const startGame = (): void => {
     setGameStarted(true);
     setSequence(generateSequence());
     setCurrentIndex(0);
@@ -68,7 +99,7 @@ const QuadNBackGame = () => {
     setFeedback('');
   };
 
-  const checkMatch = (type) => {
+  const checkMatch = (type: StimulusType): void => {
     if (currentIndex < nBack) {
       setFeedback('Too early to check matches');
       return;
@@ -104,16 +135,14 @@ const QuadNBackGame = () => {
     setFeedback(isMatch ? 'Correct!' : 'Incorrect');
   };
 
-  // Function to play letter sound
-  const playLetterSound = useCallback((letter) => {
+  const playLetterSound = useCallback((letter: Letter): void => {
     if (!audioContext) return;
     
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
     
-    // Different frequency for each letter to make them distinct
-    const frequencies = {
-      'B': 220, // A3
+    const frequencies: FrequencyMap = {
+      'B': 220,    // A3
       'K': 246.94, // B3
       'M': 261.63, // C4
       'P': 293.66, // D4
@@ -136,8 +165,12 @@ const QuadNBackGame = () => {
   }, [audioContext]);
 
   useEffect(() => {
+    const AudioContextConstructor = (window as unknown as WebKitWindow).webkitAudioContext || window.AudioContext;
+    setAudioContext(new AudioContextConstructor());
+  }, []);
+
+  useEffect(() => {
     if (gameStarted && currentIndex < sequence.length) {
-      // Play sound when showing new stimulus
       playLetterSound(sequence[currentIndex].letter);
       
       const timer = setTimeout(() => {
@@ -148,8 +181,8 @@ const QuadNBackGame = () => {
     }
   }, [gameStarted, currentIndex, sequence.length, playLetterSound]);
 
-  const renderGrid = () => {
-    const grid = [];
+  const renderGrid = (): JSX.Element[] => {
+    const grid: JSX.Element[] = [];
     const currentItem = sequence[currentIndex];
 
     for (let i = 0; i < gridSize * gridSize; i++) {
