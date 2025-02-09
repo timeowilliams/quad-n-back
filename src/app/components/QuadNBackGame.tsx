@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, JSX } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -38,6 +38,13 @@ interface ShapeComponentProps {
 interface FrequencyMap {
   [key: string]: number;
 }
+
+interface WebKitWindow extends Window {
+  webkitAudioContext: typeof AudioContext;
+}
+
+// Type assertion for the window object
+const windowWithWebKit = window as unknown as WebKitWindow;
 
 const QuadNBackGame: React.FC = () => {
   const [nBack, setNBack] = useState<number>(2);
@@ -177,7 +184,8 @@ const QuadNBackGame: React.FC = () => {
   }, [audioContext]);
 
   useEffect(() => {
-    setAudioContext(new (window.AudioContext || window.webkitAudioContext)());
+    const AudioContextConstructor = window.AudioContext || windowWithWebKit.webkitAudioContext;
+    setAudioContext(new AudioContextConstructor());
   }, []);
 
   useEffect(() => {
