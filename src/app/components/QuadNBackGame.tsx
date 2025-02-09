@@ -1,4 +1,4 @@
-'use client';
+'use client'
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,15 @@ const QuadNBackGame = () => {
   
   const gridSize = 3;
   const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink'];
-  const letters = ['C', 'H', 'K', 'L', 'Q', 'R', 'S', 'T'];
+  // Using common consonants that are phonetically distinct
+  const letters = ['B', 'K', 'M', 'P', 'R', 'S', 'T', 'L'];
+  
+  // Create audio context for sounds
+  const [audioContext, setAudioContext] = useState(null);
+  
+  useEffect(() => {
+    setAudioContext(new (window.AudioContext || window.webkitAudioContext)());
+  }, []);
   const shapes = ['square', 'circle', 'triangle', 'star'];
   const trials = 25;
 
@@ -96,15 +104,49 @@ const QuadNBackGame = () => {
     setFeedback(isMatch ? 'Correct!' : 'Incorrect');
   };
 
+  // Function to play letter sound
+  const playLetterSound = useCallback((letter) => {
+    if (!audioContext) return;
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    // Different frequency for each letter to make them distinct
+    const frequencies = {
+      'B': 220, // A3
+      'K': 246.94, // B3
+      'M': 261.63, // C4
+      'P': 293.66, // D4
+      'R': 329.63, // E4
+      'S': 349.23, // F4
+      'T': 392.00, // G4
+      'L': 440.00  // A4
+    };
+    
+    oscillator.frequency.value = frequencies[letter];
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    gainNode.gain.value = 0.1;
+    oscillator.start();
+    
+    setTimeout(() => {
+      oscillator.stop();
+    }, 200);
+  }, [audioContext]);
+
   useEffect(() => {
     if (gameStarted && currentIndex < sequence.length) {
+      // Play sound when showing new stimulus
+      playLetterSound(sequence[currentIndex].letter);
+      
       const timer = setTimeout(() => {
         setCurrentIndex(prev => prev + 1);
         setFeedback('');
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [gameStarted, currentIndex, sequence.length]);
+  }, [gameStarted, currentIndex, sequence.length, playLetterSound]);
 
   const renderGrid = () => {
     const grid = [];
